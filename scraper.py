@@ -1,5 +1,6 @@
 import re
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin, urldefrag
+from bs4 import BeautifulSoup
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
@@ -15,7 +16,21 @@ def extract_next_links(url, resp):
     #         resp.raw_response.url: the url, again
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
-    return list()
+    hyperlinks = []
+
+    if resp.status != 200:
+        return hyperlinks
+    
+    soup = BeautifulSoup(resp.raw_response.content, 'lxml')
+    links = soup.find_all('a')
+    for link in links:
+        href = link.get('href')
+        if href:
+            combined_url = urljoin(url, href)
+            defrag_url, fragment = urldefrag(combined_url)
+            hyperlinks.append(defrag_url)
+
+    return hyperlinks
 
 def is_valid(url):
     # Decide whether to crawl this url or not. 
@@ -25,6 +40,11 @@ def is_valid(url):
         parsed = urlparse(url)
         if parsed.scheme not in set(["http", "https"]):
             return False
+        
+        netloc = parsed.netloc.lower()
+        if not netloc.endswith((".ics.uci.edu", ".cs.uci.edu", ".informatics.uci.edu", ".stat.uci.edu")):
+            return False
+
         return not re.match(
             r".*\.(css|js|bmp|gif|jpe?g|ico"
             + r"|png|tiff?|mid|mp2|mp3|mp4"
@@ -34,7 +54,7 @@ def is_valid(url):
             + r"|epub|dll|cnf|tgz|sha1"
             + r"|thmx|mso|arff|rtf|jar|csv"
             + r"|rm|smil|wmv|swf|wma|zip|rar|gz)$", parsed.path.lower())
-
+        
     except TypeError:
         print ("TypeError for ", parsed)
         raise
