@@ -35,6 +35,9 @@ def hash_ngrams(ngrams):
     return hashed_ngrams
 
 def is_near_dup(hashed_ngrams):
+    if not hashed_ngrams:
+        return False
+
     duplicates = 0
     for ngram in hashed_ngrams:
         if ngram in fingerprints:
@@ -90,9 +93,12 @@ def extract_next_links(url, resp):
     for link in links:
         href = link.get('href')
         if href:
-            combined_url = urljoin(url, href)
-            defrag_url, fragment = urldefrag(combined_url)
-            hyperlinks.append(defrag_url)
+            try:
+                combined_url = urljoin(url, href)
+                defrag_url, fragment = urldefrag(combined_url)
+                hyperlinks.append(defrag_url)
+            except ValueError:
+                continue
 
     return hyperlinks
 
@@ -100,7 +106,7 @@ def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
-    ignore_list = ["wics.ics", "ngs.ics", "/doku", "mediamanager.php"]
+    ignore_list = ["wics.ics", "ngs.ics", "/doku", "mediamanager.php", "eppstein/pix"]
     calendar_list = ["week", "month", "year", "calendar"]
     try:
         parsed = urlparse(url)
