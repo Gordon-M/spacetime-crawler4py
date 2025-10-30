@@ -1,10 +1,40 @@
 import re
 from urllib.parse import urlparse, urljoin, urldefrag
 from bs4 import BeautifulSoup
+import random
+import hashlib
+
+fingerprints = {}
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
     return [link for link in links if is_valid(link)]
+
+def parseWords(text):
+    #Returns only words. HTML Tags, punctuation, whitespace removed
+    only_words = re.sub(r'[^\w\s]', '', text)
+    remove_tags = re.sub(r'<.*?>', '', only_words)
+    return remove_tags
+    
+def ngram_sort(text):
+    #returns words grouped into 3-grams
+    ngrams = []
+    words = text.split(" ")
+
+    for i in range(len(words) - 3 + 1): #groups of 3, starts at 0
+        ngram = words[i:i+3]
+        ngrams.append(" ".join(ngram))
+    return ngrams
+
+def hash_ngrams(ngrams):
+    to_hash = random.sample(ngrams, min(len(ngrams), 6))
+    hashed_ngrams = []
+    for ngram in to_hash:
+        hashed_ngram = hashlib.sha256(ngram.encode()).hexdigest()
+        if hashed_ngram not in fingerprints:
+            fingerprints[hashed_ngram] = True
+        hashed_ngrams.append(hashed_ngram)
+    return hashed_ngrams
 
 def extract_next_links(url, resp):
     # Implementation required.
@@ -18,10 +48,27 @@ def extract_next_links(url, resp):
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
     hyperlinks = []
 
-    if resp.status != 200:
+    if resp.status != 200 or resp.raw_response == None:
         return hyperlinks
     
+    file_size_limit = 2500000
+    if len(resp.raw_response.content) > file_size_limit:
+        return hyperlinks
+
     soup = BeautifulSoup(resp.raw_response.content, 'lxml')
+    text = soup.get_text(separator=' ', strip=True)
+    if len(text.split()) < 60:
+        return hyperlinks
+    
+    parsed_text = parseWords(text)
+    ngrams = ngram_sort(parsed_text)
+    hashed_ngrams = hash_ngrams(ngrams)
+
+    for fingerprint in hashed_ngrams:
+        if fingerprint in fingerprints:
+            return hyperlinks
+
+
     links = soup.find_all('a')
     for link in links:
         href = link.get('href')
@@ -36,12 +83,22 @@ def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
+    ignore_list = ["wics.ics", "ngs.ics", "/doku"]
+    calendar_list = ["week", "month", "year", "calendar"]
     try:
         parsed = urlparse(url)
         if parsed.scheme not in set(["http", "https"]):
             return False
-        
         netloc = parsed.netloc.lower()
+        
+        for item in ignore_list:
+            if item in netloc or item in parsed.path.lower():
+                return False
+        for item in calendar_list:
+            if item in parsed.path.lower():
+                return False
+
+
         if not netloc.endswith((".ics.uci.edu", ".cs.uci.edu", ".informatics.uci.edu", ".stat.uci.edu")):
             return False
 
