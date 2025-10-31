@@ -129,13 +129,15 @@ def extract_next_links(url, resp):
     parsed_text = parseWords(text)
     hash = simhash(parsed_text)
     # simhash_fingerprints.add(hash)
-    store_simhash_fingerprint(hash)
 
     print(hash)
 
     if is_near_simhash_duplicate(hash):
         print("PRUNE DUPLICATE")
+        # store_simhash_fingerprint(hash)
         return hyperlinks
+    
+    store_simhash_fingerprint(hash)
 
     # ngrams = get_ngrams(parsed_text)
     #print(f"Extracted {len(ngrams)} n-grams from {url}.")  # Debugging the number of n-grams extracted
