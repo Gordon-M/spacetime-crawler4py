@@ -58,7 +58,8 @@ class Frontier(object):
     def get_tbd_url(self):
         while True:
             try:
-                url = self.to_be_downloaded.get_nowait()
+                # wait 1 sec if queue is empty
+                url = self.to_be_downloaded.get(timeout=1)
             except Empty:
                 return None
             

@@ -27,7 +27,7 @@ lock = RLock()
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
-    return [link for link in links if is_valid(link)]  # may not need is_valid here since it's called in frontier
+    return [link for link in links if is_valid(link)]
 
 # removes HTML Tags, punctuation, whitespace, stopwords
 # then stems and returns tokens
