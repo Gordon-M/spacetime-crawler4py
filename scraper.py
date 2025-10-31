@@ -16,16 +16,49 @@ def parseWords(text):
     remove_tags = re.sub(r'<.*?>', '', only_words)
     return remove_tags
     
-def ngram_sort(text):
-    #returns words grouped into 3-grams
+def get_ngrams(text, n=3):
+    #returns words grouped into n-grams
     ngrams = []
-    words = text.split(" ")
+    tokens = text.lower().split(" ")
 
-    for i in range(len(words) - 3 + 1): #groups of 3, starts at 0
-        ngram = words[i:i+3]
+    for i in range(len(tokens) - n + 1):
+        ngram = tokens[i:i+3]
         ngrams.append(" ".join(ngram))
     return ngrams
 
+# gets b-bit hash of text
+def simhash(text, b=64):
+    tokens = text.lower().split()
+
+    v = [0] * b
+
+    for token in tokens:
+        # get lower b-bits of 128-bit hash on individual token
+        token_hash = int(hashlib.md5(token.encode('utf-8')).hexdigest(), 16)
+
+        # update vector v
+        for i in range(b):
+            bitmask = 1 << i
+            if token_hash & bitmask:
+                v[i] += 1
+            else:
+                v[i] -= 1
+    
+    # convert v to binary b-bit fingerprint
+    fingerprint = 0
+    for i in range(b):
+        if v[i] >= 0:
+            fingerprint |= 1 << i
+    
+    return fingerprint
+
+# uses similarity based on hamming distance
+# between 2 simhashes
+def are_near_duplicates(hash1, hash2, b):
+    num_diff = bin(hash1 ^ hash2).count("1")
+    similarity_score = 1 - num_diff / b
+    return similarity_score >= 0.95
+    
 def hash_ngrams(ngrams):
     to_hash = random.sample(ngrams, min(len(ngrams), 100))
     hashed_ngrams = []
@@ -68,14 +101,14 @@ def extract_next_links(url, resp):
         return hyperlinks
 
     soup = BeautifulSoup(resp.raw_response.content, 'lxml')
-    text = soup.get_text(separator=' ', strip=True)
+    text = soup.get_text(separator=' ', strip=True)  # includes text between noisy tags
     if len(text.split()) < 60:
         #print(f"Skipping URL {url} due to insufficient text content.")
 
         return hyperlinks
 
     parsed_text = parseWords(text)
-    ngrams = ngram_sort(parsed_text)
+    ngrams = get_ngrams(parsed_text)
     #print(f"Extracted {len(ngrams)} n-grams from {url}.")  # Debugging the number of n-grams extracted
     hashed_ngrams = hash_ngrams(ngrams)
     #print(f"Hashed {len(hashed_ngrams)} n-grams from {url}.")  # Debugging the number of hashed n-grams
@@ -106,7 +139,9 @@ def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
-    ignore_list = ["wics.ics", "ngs.ics", "/doku", "mediamanager.php", "eppstein/pix"]
+    # ignore_list = ["wics.ics", "ngs.ics", "/doku", "mediamanager.php", "eppstein/pix"]
+    ignore_list = ["ngs.ics", "/doku", "mediamanager.php", "eppstein/pix", "isg.ics.uci.edu/events/",
+    "timeline", "?version=", "?action=diff", "?format=", "?entry_point", "login", "/r.php", "redirect", "/events/"]
     calendar_list = ["week", "month", "year", "calendar"]
     try:
         parsed = urlparse(url)
