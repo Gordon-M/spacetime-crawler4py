@@ -5,12 +5,13 @@ import random
 import hashlib
 from collections import defaultdict
 
-fingerprints = {}
-simhash_fingerprints = set()
+# fingerprints = {}
+# simhash_fingerprints = set()
 
 # (i, 16-bit chunk) : set of hashes with that chunk in the ith pos
 # defaultdict creates empty set for new keys
 simhash_buckets = defaultdict(set)
+visited_urls = set()
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
@@ -106,16 +107,19 @@ def extract_next_links(url, resp):
     #         resp.raw_response.url: the url, again
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
-    hyperlinks = []
+
+    if url in visited_urls:
+        return []
+    visited_urls.add(url)
 
     if resp.status != 200 or resp.raw_response == None:
         #print(f"Skipping URL {url} due to bad status or empty content.")
-        return hyperlinks
+        return []
     
     file_size_limit = 2500000
     if len(resp.raw_response.content) > file_size_limit:
         #print(f"Skipping URL {url} due to large file size.")
-        return hyperlinks
+        return []
 
     soup = BeautifulSoup(resp.raw_response.content, 'lxml')
     for tag in soup(['header', 'footer', 'nav', 'script', 'style', 'aside']):
@@ -123,8 +127,7 @@ def extract_next_links(url, resp):
     text = soup.get_text(separator=' ', strip=True)
     if len(text.split()) < 60:
         #print(f"Skipping URL {url} due to insufficient text content.")
-
-        return hyperlinks
+        return []
 
     parsed_text = parseWords(text)
     hash = simhash(parsed_text)
@@ -135,7 +138,7 @@ def extract_next_links(url, resp):
     if is_near_simhash_duplicate(hash):
         print("PRUNE DUPLICATE")
         # store_simhash_fingerprint(hash)
-        return hyperlinks
+        return []
     
     store_simhash_fingerprint(hash)
 
@@ -153,6 +156,7 @@ def extract_next_links(url, resp):
     # for ngram in hashed_ngrams:
     #     fingerprints[ngram] = True
 
+    hyperlinks = []
     links = soup.find_all('a')
     for link in links:
         href = link.get('href')
