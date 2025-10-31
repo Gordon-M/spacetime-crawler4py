@@ -5,6 +5,7 @@ import random
 import hashlib
 
 fingerprints = {}
+simhash_fingerprints = set()
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
@@ -51,13 +52,6 @@ def simhash(text, b=64):
             fingerprint |= 1 << i
     
     return fingerprint
-
-# uses similarity based on hamming distance
-# between 2 simhashes
-def are_near_duplicates(hash1, hash2, b):
-    num_diff = bin(hash1 ^ hash2).count("1")
-    similarity_score = 1 - num_diff / b
-    return similarity_score >= 0.95
     
 def hash_ngrams(ngrams):
     to_hash = random.sample(ngrams, min(len(ngrams), 100))
@@ -66,6 +60,16 @@ def hash_ngrams(ngrams):
         hashed_ngram = hashlib.sha256(ngram.encode()).hexdigest()
         hashed_ngrams.append(hashed_ngram)
     return hashed_ngrams
+
+# uses similarity based on hamming distance
+# between 2 simhashes
+def is_near_simhash_duplicate(hash1, b):
+    for hash2 in fingerprints:
+        num_diff = bin(hash1 ^ hash2).count("1")
+        similarity_score = 1 - num_diff / b
+        if similarity_score >= 0.95:
+            return True
+    return False
 
 def is_near_dup(hashed_ngrams):
     if not hashed_ngrams:
@@ -108,19 +112,24 @@ def extract_next_links(url, resp):
         return hyperlinks
 
     parsed_text = parseWords(text)
-    ngrams = get_ngrams(parsed_text)
+    hash = simhash(parsed_text)
+    if is_near_simhash_duplicate(hash):
+        return hyperlinks
+    simhash_fingerprints.add(hash)
+
+    # ngrams = get_ngrams(parsed_text)
     #print(f"Extracted {len(ngrams)} n-grams from {url}.")  # Debugging the number of n-grams extracted
-    hashed_ngrams = hash_ngrams(ngrams)
+    # hashed_ngrams = hash_ngrams(ngrams)
     #print(f"Hashed {len(hashed_ngrams)} n-grams from {url}.")  # Debugging the number of hashed n-grams
 
     # for fingerprint in hashed_ngrams:
     #     if fingerprint in fingerprints:
     #         print(f"Skipping URL {url} due to duplicate n-gram fingerprint.")  # Debug if we find a duplicate fingerprint
     #         return hyperlinks
-    if is_near_dup(hashed_ngrams):
-        return hyperlinks
-    for ngram in hashed_ngrams:
-        fingerprints[ngram] = True
+    # if is_near_dup(hashed_ngrams):
+    #     return hyperlinks
+    # for ngram in hashed_ngrams:
+    #     fingerprints[ngram] = True
 
     links = soup.find_all('a')
     for link in links:
