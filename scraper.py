@@ -108,8 +108,8 @@ def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
-    ignore_list = ["ngs.ics", "/doku", "mediamanager.php", "eppstein/pix", "isg.ics.uci.edu/events/", "/events/", "facebook", "twitter"
-    "timeline", "?version=", "?action=diff", "?format=", "?entry_point", "login", "/r.php", "redirect","~eppstein/pix",
+    ignore_list = ["ngs.ics", "/doku", "mediamanager.php", "eppstein/pix", "isg.ics.uci.edu/events/", "/events/", "facebook", "twitter",
+    "timeline", "version=", "action=diff", "format=", "entry_point", "login", "/r.php", "redirect","~eppstein/pix",
     ]
     calendar_list = ["week", "month", "year", "calendar"]
     try:
@@ -118,9 +118,10 @@ def is_valid(url):
             #print(f"Rejected due to invalid scheme: {url}")
             return False
         netloc = parsed.netloc.lower()
-        
+        path = parsed.path.lower()
+        query = parsed.query.lower()
         for item in ignore_list:
-            if item in netloc or item in parsed.path.lower():
+            if item in netloc or item in path or item in query:
                 #print(f"Rejected due to ignore list: {url}")
                 return False
         for item in calendar_list:
