@@ -150,26 +150,9 @@ def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-    # ignore_list = ["wics.ics", "ngs.ics", "/doku", "mediamanager.php", "eppstein/pix"]
-    ignore_list = ["ngs.ics", "/doku", "mediamanager.php", "eppstein/pix", "isg.ics.uci.edu/events/",
-    "timeline", "?version=", "?action=diff", "?format=", "?entry_point", "login", "/r.php", "redirect", "/events/"]
-=======
-    ignore_list = ["ngs.ics", "/doku", "mediamanager.php", "eppstein/pix", "isg.ics.uci.edu/events/", "/events/", "facebook", "twitter"
-    "timeline", "?version=", "?action=diff", "?format=", "?entry_point", "login", "/r.php", "redirect","~eppstein/pix",
-=======
     ignore_list = ["ngs.ics", "/doku", "mediamanager.php", "eppstein/pix", "isg.ics.uci.edu/events/", "/events/", "facebook", "twitter",
-    "timeline", "version=", "action=diff", "format=", "entry_point", "login", "/r.php", "redirect","~eppstein/pix",
->>>>>>> origin/gma
-    ]
->>>>>>> origin/gma
-=======
-    ignore_list = ["ngs.ics", "/doku", "mediamanager.php", "eppstein/pix", "isg.ics.uci.edu/events/", "/events/", "facebook", "twitter",
-    "timeline", "version=", "action=diff", "format=", "entry_point", "login", "/r.php", "redirect","~eppstein/pix",
+    "timeline", "version=", "action=diff", "format=", "entry_point", "login", "/r.php", "redirect","~eppstein/pix",]
 
->>>>>>> e5d19d9de04821c92cef57ec5b25c6d6b48fba7d
     calendar_list = ["week", "month", "year", "calendar"]
     try:
         parsed = urlparse(url)
