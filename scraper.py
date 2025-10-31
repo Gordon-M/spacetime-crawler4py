@@ -4,6 +4,15 @@ from bs4 import BeautifulSoup
 import random
 import hashlib
 from collections import defaultdict
+from nltk.stem import PorterStemmer
+
+stemmer = PorterStemmer()
+STOPWORDS = {
+    "the", "is", "in", "at", "of", "on", "and", "a", "to", "for",
+    "this", "that", "it", "as", "an", "by", "be", "from", "with",
+    "or", "are", "was", "were", "but", "not", "can", "will", "has",
+    "have", "had", "so", "if", "then", "when", "while", "which",
+}
 
 # fingerprints = {}
 # simhash_fingerprints = set()
@@ -17,11 +26,17 @@ def scraper(url, resp):
     links = extract_next_links(url, resp)
     return [link for link in links if is_valid(link)]
 
-def parseWords(text):
-    #Returns only words. HTML Tags, punctuation, whitespace removed
+# removes HTML Tags, punctuation, whitespace, stopwords
+# then stems and returns tokens
+def parse_text(text):
     remove_tags = re.sub(r'<.*?>', '', text)
     only_words = re.sub(r'[^\w\s]', '', remove_tags)
-    return only_words
+
+    tokens = only_words.lower().split()
+    remove_stopwords = [t for t in tokens if t not in STOPWORDS]
+    stemmed_tokens = [stemmer.stem(t) for t in remove_stopwords]
+
+    return stemmed_tokens
     
 # def get_ngrams(text, n=3):
 #     #returns words grouped into n-grams
@@ -34,9 +49,7 @@ def parseWords(text):
 #     return ngrams
 
 # gets b-bit hash of text
-def simhash(text, b=64):
-    tokens = text.lower().split()
-
+def simhash(tokens, b=64):
     v = [0] * b
 
     for token in tokens:
@@ -129,8 +142,8 @@ def extract_next_links(url, resp):
         #print(f"Skipping URL {url} due to insufficient text content.")
         return []
 
-    parsed_text = parseWords(text)
-    hash = simhash(parsed_text)
+    tokens = parse_text(text)
+    hash = simhash(tokens)
     # simhash_fingerprints.add(hash)
 
     print(hash)
