@@ -68,7 +68,7 @@ def extract_next_links(url, resp):
         return hyperlinks
 
     soup = BeautifulSoup(resp.raw_response.content, 'lxml')
-    for tag in soup(['header', 'footer', 'nav', 'script', 'style', 'aside'])
+    for tag in soup(['header', 'footer', 'nav', 'script', 'style', 'aside']):
         tag.decompose()
     text = soup.get_text(separator=' ', strip=True)
     if len(text.split()) < 60:
