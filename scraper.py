@@ -101,13 +101,9 @@ def extract_next_links(url, resp):
         return hyperlinks
 
     soup = BeautifulSoup(resp.raw_response.content, 'lxml')
-<<<<<<< HEAD
-    text = soup.get_text(separator=' ', strip=True)  # includes text between noisy tags
-=======
     for tag in soup(['header', 'footer', 'nav', 'script', 'style', 'aside']):
         tag.decompose()
     text = soup.get_text(separator=' ', strip=True)
->>>>>>> origin/gma
     if len(text.split()) < 60:
         #print(f"Skipping URL {url} due to insufficient text content.")
 
@@ -147,6 +143,7 @@ def is_valid(url):
     # There are already some conditions that return False.
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
     # ignore_list = ["wics.ics", "ngs.ics", "/doku", "mediamanager.php", "eppstein/pix"]
     ignore_list = ["ngs.ics", "/doku", "mediamanager.php", "eppstein/pix", "isg.ics.uci.edu/events/",
     "timeline", "?version=", "?action=diff", "?format=", "?entry_point", "login", "/r.php", "redirect", "/events/"]
@@ -159,6 +156,11 @@ def is_valid(url):
 >>>>>>> origin/gma
     ]
 >>>>>>> origin/gma
+=======
+    ignore_list = ["ngs.ics", "/doku", "mediamanager.php", "eppstein/pix", "isg.ics.uci.edu/events/", "/events/", "facebook", "twitter",
+    "timeline", "version=", "action=diff", "format=", "entry_point", "login", "/r.php", "redirect","~eppstein/pix",
+
+>>>>>>> e5d19d9de04821c92cef57ec5b25c6d6b48fba7d
     calendar_list = ["week", "month", "year", "calendar"]
     try:
         parsed = urlparse(url)
