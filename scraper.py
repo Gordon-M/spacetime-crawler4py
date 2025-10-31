@@ -63,7 +63,7 @@ def hash_ngrams(ngrams):
 
 # uses similarity based on hamming distance
 # between 2 simhashes
-def is_near_simhash_duplicate(hash1, b):
+def is_near_simhash_duplicate(hash1, b=64):
     for hash2 in fingerprints:
         num_diff = bin(hash1 ^ hash2).count("1")
         similarity_score = 1 - num_diff / b
