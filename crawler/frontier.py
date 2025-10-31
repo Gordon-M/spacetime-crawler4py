@@ -59,7 +59,7 @@ class Frontier(object):
         while True:
             try:
                 # wait 1 sec if queue is empty
-                url = self.to_be_downloaded.get(timeout=1)
+                url = self.to_be_downloaded.get(timeout=3)
             except Empty:
                 return None
             

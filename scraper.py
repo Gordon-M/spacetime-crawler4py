@@ -153,8 +153,6 @@ def extract_next_links(url, resp):
     hash = simhash(tokens)
     # simhash_fingerprints.add(hash)
 
-    print(hash)
-
     with lock:
         if is_near_simhash_duplicate(hash):
             print("PRUNE DUPLICATE")
