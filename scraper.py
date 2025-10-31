@@ -12,9 +12,9 @@ def scraper(url, resp):
 
 def parseWords(text):
     #Returns only words. HTML Tags, punctuation, whitespace removed
-    only_words = re.sub(r'[^\w\s]', '', text)
-    remove_tags = re.sub(r'<.*?>', '', only_words)
-    return remove_tags
+    remove_tags = re.sub(r'<.*?>', '', text)
+    only_words = re.sub(r'[^\w\s]', '', remove_tags)
+    return only_words
     
 def get_ngrams(text, n=3):
     #returns words grouped into n-grams
@@ -101,7 +101,13 @@ def extract_next_links(url, resp):
         return hyperlinks
 
     soup = BeautifulSoup(resp.raw_response.content, 'lxml')
+<<<<<<< HEAD
     text = soup.get_text(separator=' ', strip=True)  # includes text between noisy tags
+=======
+    for tag in soup(['header', 'footer', 'nav', 'script', 'style', 'aside']):
+        tag.decompose()
+    text = soup.get_text(separator=' ', strip=True)
+>>>>>>> origin/gma
     if len(text.split()) < 60:
         #print(f"Skipping URL {url} due to insufficient text content.")
 
@@ -139,9 +145,15 @@ def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
+<<<<<<< HEAD
     # ignore_list = ["wics.ics", "ngs.ics", "/doku", "mediamanager.php", "eppstein/pix"]
     ignore_list = ["ngs.ics", "/doku", "mediamanager.php", "eppstein/pix", "isg.ics.uci.edu/events/",
     "timeline", "?version=", "?action=diff", "?format=", "?entry_point", "login", "/r.php", "redirect", "/events/"]
+=======
+    ignore_list = ["ngs.ics", "/doku", "mediamanager.php", "eppstein/pix", "isg.ics.uci.edu/events/", "/events/", "facebook", "twitter"
+    "timeline", "?version=", "?action=diff", "?format=", "?entry_point", "login", "/r.php", "redirect","~eppstein/pix",
+    ]
+>>>>>>> origin/gma
     calendar_list = ["week", "month", "year", "calendar"]
     try:
         parsed = urlparse(url)
