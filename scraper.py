@@ -5,6 +5,7 @@ import random
 import hashlib
 from collections import defaultdict
 from nltk.stem import PorterStemmer
+from threading import RLock
 
 stemmer = PorterStemmer()
 STOPWORDS = {
@@ -22,9 +23,11 @@ STOPWORDS = {
 simhash_buckets = defaultdict(set)
 visited_urls = set()
 
+lock = RLock()
+
 def scraper(url, resp):
     links = extract_next_links(url, resp)
-    return [link for link in links if is_valid(link)]
+    return [link for link in links if is_valid(link)]  # may not need is_valid here since it's called in frontier
 
 # removes HTML Tags, punctuation, whitespace, stopwords
 # then stems and returns tokens
@@ -121,9 +124,10 @@ def extract_next_links(url, resp):
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
 
-    if url in visited_urls:
-        return []
-    visited_urls.add(url)
+    with lock:
+        if url in visited_urls:
+            return []
+        visited_urls.add(url)
 
     if resp.status != 200 or resp.raw_response == None:
         #print(f"Skipping URL {url} due to bad status or empty content.")
@@ -135,8 +139,11 @@ def extract_next_links(url, resp):
         return []
 
     soup = BeautifulSoup(resp.raw_response.content, 'lxml')
+
+    # remove noise from page content
     for tag in soup(['header', 'footer', 'nav', 'script', 'style', 'aside']):
         tag.decompose()
+    
     text = soup.get_text(separator=' ', strip=True)
     if len(text.split()) < 60:
         #print(f"Skipping URL {url} due to insufficient text content.")
@@ -148,12 +155,12 @@ def extract_next_links(url, resp):
 
     print(hash)
 
-    if is_near_simhash_duplicate(hash):
-        print("PRUNE DUPLICATE")
-        # store_simhash_fingerprint(hash)
-        return []
-    
-    store_simhash_fingerprint(hash)
+    with lock:
+        if is_near_simhash_duplicate(hash):
+            print("PRUNE DUPLICATE")
+            # store_simhash_fingerprint(hash)
+            return []
+        store_simhash_fingerprint(hash)
 
     # ngrams = get_ngrams(parsed_text)
     #print(f"Extracted {len(ngrams)} n-grams from {url}.")  # Debugging the number of n-grams extracted
