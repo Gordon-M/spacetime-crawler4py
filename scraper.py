@@ -116,9 +116,9 @@ def extract_next_links(url, resp):
     parsed_text = parseWords(text)
     hash = simhash(parsed_text)
     simhash_fingerprints.add(hash)
-    
+
     if is_near_simhash_duplicate(hash):
-        print("FOUND DUPLICATE")
+        print("PRUNE DUPLICATE")
         return hyperlinks
 
     # ngrams = get_ngrams(parsed_text)
