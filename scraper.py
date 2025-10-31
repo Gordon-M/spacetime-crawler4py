@@ -3,9 +3,14 @@ from urllib.parse import urlparse, urljoin, urldefrag
 from bs4 import BeautifulSoup
 import random
 import hashlib
+from collections import defaultdict
 
 fingerprints = {}
 simhash_fingerprints = set()
+
+# (i, 16-bit chunk) : set of hashes with that chunk in the ith pos
+# defaultdict creates empty set for new keys
+simhash_buckets = defaultdict(set)
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
@@ -17,15 +22,15 @@ def parseWords(text):
     only_words = re.sub(r'[^\w\s]', '', remove_tags)
     return only_words
     
-def get_ngrams(text, n=3):
-    #returns words grouped into n-grams
-    ngrams = []
-    tokens = text.lower().split(" ")
+# def get_ngrams(text, n=3):
+#     #returns words grouped into n-grams
+#     ngrams = []
+#     tokens = text.lower().split(" ")
 
-    for i in range(len(tokens) - n + 1):
-        ngram = tokens[i:i+3]
-        ngrams.append(" ".join(ngram))
-    return ngrams
+#     for i in range(len(tokens) - n + 1):
+#         ngram = tokens[i:i+3]
+#         ngrams.append(" ".join(ngram))
+#     return ngrams
 
 # gets b-bit hash of text
 def simhash(text, b=64):
@@ -53,35 +58,43 @@ def simhash(text, b=64):
     
     return fingerprint
     
-def hash_ngrams(ngrams):
-    to_hash = random.sample(ngrams, min(len(ngrams), 100))
-    hashed_ngrams = []
-    for ngram in to_hash:
-        hashed_ngram = hashlib.sha256(ngram.encode()).hexdigest()
-        hashed_ngrams.append(hashed_ngram)
-    return hashed_ngrams
+# def hash_ngrams(ngrams):
+#     to_hash = random.sample(ngrams, min(len(ngrams), 100))
+#     hashed_ngrams = []
+#     for ngram in to_hash:
+#         hashed_ngram = hashlib.sha256(ngram.encode()).hexdigest()
+#         hashed_ngrams.append(hashed_ngram)
+#     return hashed_ngrams
 
 # uses similarity based on hamming distance
 # between 2 simhashes
 def is_near_simhash_duplicate(hash1, b=64):
-    for hash2 in fingerprints:
-        num_diff = bin(hash1 ^ hash2).count("1")
-        similarity_score = 1 - num_diff / b
-        if similarity_score >= 0.95:
-            return True
+    chunks = [(hash1) >> (16*i) & 0xFFFF for i in range(4)]
+
+    for i, chunk in enumerate(chunks):
+        for hash2 in simhash_buckets[(i, chunk)]:
+            num_diff = bin(hash1 ^ hash2).count("1")
+            similarity_score = 1 - num_diff / b
+            if similarity_score >= 0.95:
+                return True
     return False
 
-def is_near_dup(hashed_ngrams):
-    if not hashed_ngrams:
-        return False
+def store_simhash_fingerprint(hash):
+    for i in range(4):
+        chunk = (hash >> (16*i) & 0xFFFF)
+        simhash_buckets[(i, chunk)].add(hash)
 
-    duplicates = 0
-    for ngram in hashed_ngrams:
-        if ngram in fingerprints:
-            duplicates += 1
-    similarity_score = duplicates / len(hashed_ngrams)
-    #print(similarity_score)
-    return similarity_score > .9
+# def is_near_dup(hashed_ngrams):
+#     if not hashed_ngrams:
+#         return False
+
+#     duplicates = 0
+#     for ngram in hashed_ngrams:
+#         if ngram in fingerprints:
+#             duplicates += 1
+#     similarity_score = duplicates / len(hashed_ngrams)
+#     #print(similarity_score)
+#     return similarity_score > .9
 
 def extract_next_links(url, resp):
     # Implementation required.
@@ -115,7 +128,8 @@ def extract_next_links(url, resp):
 
     parsed_text = parseWords(text)
     hash = simhash(parsed_text)
-    simhash_fingerprints.add(hash)
+    # simhash_fingerprints.add(hash)
+    store_simhash_fingerprint(hash)
 
     print(hash)
 
