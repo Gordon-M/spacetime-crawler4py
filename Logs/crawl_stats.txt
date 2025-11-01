@@ -1,0 +1,5 @@
+-------------CRAWL STATS------------
+Total unique pages: 0
+Longest page: https://www.ics.uci.edu with 706 words
+Top 50 most common words:
+Subdomains found in uci.edu:

@@ -7,6 +7,8 @@ from urllib.parse import urlparse
 import time
 from utils import get_logger, get_urlhash, normalize
 from scraper import is_valid
+from scraper import unique_pages, page_word_counts, token_counts
+from collections import Counter
 
 class Frontier(object):
     def __init__(self, config, restart):
@@ -100,3 +102,40 @@ class Frontier(object):
 
             self.save[urlhash] = (url, True)
             self.save.sync()
+
+    def print_crawl_stats(self):
+        log_file = os.path.join("Logs", "crawl_stats.txt")
+
+        with open(log_file, "w", encoding="utf-8") as f:
+            f.write("-------------CRAWL STATS------------\n")
+            
+            total_pages = len(unique_pages)
+            f.write(f"Total unique pages: {total_pages}\n")
+            print(f"Total unique pages: {total_pages}")
+
+            if page_word_counts:
+                longest_page = max(page_word_counts, key=page_word_counts.get)
+                most_words = page_word_counts[longest_page]
+                f.write(f"Longest page: {longest_page} with {most_words} words\n")
+                print(f"Longest page: {longest_page} with {most_words} words")
+
+            top_words = Counter(token_counts).most_common(50)
+            f.write("Top 50 most common words:\n")
+            print("Top 50 most common words:")
+            for word, count in top_words:
+                f.write(f"{word}: {count}\n")
+                print(f"{word}: {count}")
+
+            subdomains = defaultdict(int)
+            for url in unique_pages:
+                netloc = urlparse(url).netloc.lower()
+                if netloc.endswith(".uci.edu"):
+                    subdomains[netloc] += 1
+
+            f.write("Subdomains found in uci.edu:\n")
+            print("Subdomains found in uci.edu:")
+            for sub, count in sorted(subdomains.items()):
+                f.write(f"{sub}, {count}\n")
+                print(f"{sub}, {count}")
+
+        print(f"Crawl stats saved to {log_file}")

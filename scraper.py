@@ -20,6 +20,10 @@ STOPWORDS = {
 simhash_buckets = defaultdict(set)
 visited_urls = set()
 
+unique_pages = {}
+page_word_counts = {}
+token_counts = {}
+
 lock = RLock()
 
 def scraper(url, resp):
@@ -29,8 +33,7 @@ def scraper(url, resp):
 # removes HTML Tags, punctuation, whitespace, stopwords
 # then stems and returns tokens
 def parse_text(text):
-    remove_tags = re.sub(r'<.*?>', '', text)
-    only_words = re.sub(r'[^\w\s]', '', remove_tags)
+    only_words = re.sub(r'[^\w\s]', '', text)
 
     tokens = only_words.lower().split()
     remove_stopwords = [t for t in tokens if t not in STOPWORDS]
@@ -90,11 +93,11 @@ def extract_next_links(url, resp):
     #         resp.raw_response.url: the url, again
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
-
+    defrag_url, fragment = urldefrag(url)
     with lock:
-        if url in visited_urls:
+        if defrag_url in visited_urls:
             return []
-        visited_urls.add(url)
+        visited_urls.add(defrag_url)
 
     if resp.status != 200 or resp.raw_response == None:
         return []
@@ -112,6 +115,8 @@ def extract_next_links(url, resp):
     text = soup.get_text(separator=' ', strip=True)
     if len(text.split()) < 20:
         return []
+    words = re.findall(r'\w+', text)
+    page_word_counts[defrag_url] = len(words)
 
     tokens = parse_text(text)
     hash = simhash(tokens)
@@ -120,6 +125,11 @@ def extract_next_links(url, resp):
         if is_near_simhash_duplicate(hash):
             return []
         store_simhash_fingerprint(hash)
+
+        unique_pages[defrag_url] = True
+        for token in tokens:
+            token_counts[token] = token_counts.get(token, 0) + 1
+
 
     hyperlinks = []
     links = soup.find_all('a')
