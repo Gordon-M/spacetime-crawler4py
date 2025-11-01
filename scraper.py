@@ -46,9 +46,6 @@ STOPWORDS = {
     "your", "yours", "yourself", "yourselves",
 }
 
-# fingerprints = {}
-# simhash_fingerprints = set()
-
 # (i, 16-bit chunk) : set of hashes with that chunk in the ith pos
 # defaultdict creates empty set for new keys
 simhash_buckets = defaultdict(set)
@@ -58,8 +55,6 @@ lock = RLock()
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
-    # print("NEW LINKS", links)
-    # print()
     return [link for link in links if is_valid(link)]
 
 # removes HTML Tags, punctuation, whitespace, stopwords
@@ -73,16 +68,6 @@ def parse_text(text):
     stemmed_tokens = [stemmer.stem(t) for t in remove_stopwords]
 
     return stemmed_tokens
-    
-# def get_ngrams(text, n=3):
-#     #returns words grouped into n-grams
-#     ngrams = []
-#     tokens = text.lower().split(" ")
-
-#     for i in range(len(tokens) - n + 1):
-#         ngram = tokens[i:i+3]
-#         ngrams.append(" ".join(ngram))
-#     return ngrams
 
 # gets b-bit hash of text
 def simhash(tokens, b=64):
@@ -107,14 +92,6 @@ def simhash(tokens, b=64):
             fingerprint |= 1 << i
     
     return fingerprint
-    
-# def hash_ngrams(ngrams):
-#     to_hash = random.sample(ngrams, min(len(ngrams), 100))
-#     hashed_ngrams = []
-#     for ngram in to_hash:
-#         hashed_ngram = hashlib.sha256(ngram.encode()).hexdigest()
-#         hashed_ngrams.append(hashed_ngram)
-#     return hashed_ngrams
 
 # uses similarity based on hamming distance
 # between 2 simhashes
@@ -134,18 +111,6 @@ def store_simhash_fingerprint(hash):
         chunk = (hash >> (16*i) & 0xFFFF)
         simhash_buckets[(i, chunk)].add(hash)
 
-# def is_near_dup(hashed_ngrams):
-#     if not hashed_ngrams:
-#         return False
-
-#     duplicates = 0
-#     for ngram in hashed_ngrams:
-#         if ngram in fingerprints:
-#             duplicates += 1
-#     similarity_score = duplicates / len(hashed_ngrams)
-#     #print(similarity_score)
-#     return similarity_score > .9
-
 def extract_next_links(url, resp):
     # Implementation required.
     # url: the URL that was used to get the page
@@ -163,12 +128,10 @@ def extract_next_links(url, resp):
         visited_urls.add(url)
 
     if resp.status != 200 or resp.raw_response == None:
-        #print(f"Skipping URL {url} due to bad status or empty content.")
         return []
     
     file_size_limit = 2500000
     if len(resp.raw_response.content) > file_size_limit:
-        #print(f"Skipping URL {url} due to large file size.")
         return []
 
     soup = BeautifulSoup(resp.raw_response.content, 'lxml')
@@ -179,33 +142,15 @@ def extract_next_links(url, resp):
     
     text = soup.get_text(separator=' ', strip=True)
     if len(text.split()) < 20:
-        #print(f"Skipping URL {url} due to insufficient text content.")
         return []
 
     tokens = parse_text(text)
     hash = simhash(tokens)
-    # simhash_fingerprints.add(hash)
 
     with lock:
         if is_near_simhash_duplicate(hash):
-            print("PRUNE DUPLICATE")
-            # store_simhash_fingerprint(hash)
             return []
         store_simhash_fingerprint(hash)
-
-    # ngrams = get_ngrams(parsed_text)
-    #print(f"Extracted {len(ngrams)} n-grams from {url}.")  # Debugging the number of n-grams extracted
-    # hashed_ngrams = hash_ngrams(ngrams)
-    #print(f"Hashed {len(hashed_ngrams)} n-grams from {url}.")  # Debugging the number of hashed n-grams
-
-    # for fingerprint in hashed_ngrams:
-    #     if fingerprint in fingerprints:
-    #         print(f"Skipping URL {url} due to duplicate n-gram fingerprint.")  # Debug if we find a duplicate fingerprint
-    #         return hyperlinks
-    # if is_near_dup(hashed_ngrams):
-    #     return hyperlinks
-    # for ngram in hashed_ngrams:
-    #     fingerprints[ngram] = True
 
     hyperlinks = []
     links = soup.find_all('a')
@@ -225,29 +170,25 @@ def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
-    ignore_list = ["mediamanager.php", "eppstein/pix", "isg.ics.uci.edu/events/", "facebook", "twitter", "login", "redirect",]
-
-    calendar_list = ["week", "month", "year", "calendar"]
+    ignore_list = ["mediamanager.php", "eppstein/pix", "isg.ics.uci.edu/events/", "share=facebook", "share=twitter", "login", "redirect",
+                    "grape.ics.uci.edu/wiki/public/timeline", "grape.ics.uci.edu/wiki/asterix/timeline", "ical=", "fano.ics.uci.edu/ca/rules",
+                    "week", "month", "year", "calendar"]
     try:
         parsed = urlparse(url)
         if parsed.scheme not in set(["http", "https"]):
-            #print(f"Rejected due to invalid scheme: {url}")
             return False
         netloc = parsed.netloc.lower()
         path = parsed.path.lower()
         query = parsed.query.lower()
+        if "grape.ics.uci.edu" in netloc and "action=diff&version=" in query:
+            return False
+        
         for item in ignore_list:
             if item in netloc or item in path or item in query:
-                #print(f"Rejected due to ignore list: {url}")
-                return False
-        for item in calendar_list:
-            if item in parsed.path.lower():
-                #print(f"Rejected due to calendar list: {url}")
                 return False
 
 
         if not netloc.endswith((".ics.uci.edu", ".cs.uci.edu", ".informatics.uci.edu", ".stat.uci.edu")):
-            #print(f"Rejected due to domain mismatch: {url}")
             return False
 
         return not re.match(
