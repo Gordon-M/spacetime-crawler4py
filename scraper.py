@@ -64,7 +64,7 @@ def hash_ngrams(ngrams):
 # uses similarity based on hamming distance
 # between 2 simhashes
 def is_near_simhash_duplicate(hash1, b):
-    for hash2 in fingerprints:
+    for hash2 in simhash_fingerprints:
         num_diff = bin(hash1 ^ hash2).count("1")
         similarity_score = 1 - num_diff / b
         if similarity_score >= 0.95:
@@ -108,14 +108,14 @@ def extract_next_links(url, resp):
     for tag in soup(['header', 'footer', 'nav', 'script', 'style', 'aside']):
         tag.decompose()
     text = soup.get_text(separator=' ', strip=True)
-    if len(text.split()) < 60:
+    if len(text.split()) < 20:
         #print(f"Skipping URL {url} due to insufficient text content.")
 
         return hyperlinks
 
     parsed_text = parseWords(text)
     hash = simhash(parsed_text)
-    if is_near_simhash_duplicate(hash):
+    if is_near_simhash_duplicate(hash, 64):
         return hyperlinks
     simhash_fingerprints.add(hash)
 
@@ -150,8 +150,7 @@ def is_valid(url):
     # Decide whether to crawl this url or not. 
     # If you decide to crawl it, return True; otherwise return False.
     # There are already some conditions that return False.
-    ignore_list = ["ngs.ics", "/doku", "mediamanager.php", "eppstein/pix", "isg.ics.uci.edu/events/", "/events/", "facebook", "twitter",
-    "timeline", "version=", "action=diff", "format=", "entry_point", "login", "/r.php", "redirect","~eppstein/pix",]
+    ignore_list = ["mediamanager.php", "eppstein/pix", "isg.ics.uci.edu/events/", "facebook", "twitter", "login", "redirect",]
 
     calendar_list = ["week", "month", "year", "calendar"]
     try:
