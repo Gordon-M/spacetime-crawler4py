@@ -16,7 +16,7 @@ class Frontier(object):
         # uses queue instead of list for thread safety
         self.to_be_downloaded = Queue()
 
-        # domain name : timestamp of a
+        # domain name : timestamp
         # timestamp defaults to 0.0
         self.domain_last_seen = defaultdict(float)
         self.lock = RLock()
@@ -56,24 +56,30 @@ class Frontier(object):
             f"total urls discovered.")
 
     def get_tbd_url(self):
-        while True:
-            try:
-                # wait 5 sec if queue is empty
-                url = self.to_be_downloaded.get(timeout=5)
-            except Empty:
-                return None
+        try:
+            # wait 10 sec if queue is empty
+            url = self.to_be_downloaded.get(timeout=10)
+        except Empty:
+            return None
+        
+        domain = urlparse(url).netloc
+
+        with self.lock:
+            cur_time = time.time()
+            elapsed_time = cur_time - self.domain_last_seen[domain]
+            if elapsed_time > self.config.time_delay:  # domain hasn't been accessed recently
+                self.domain_last_seen[domain] = cur_time
+                return url
             
-            domain = urlparse(url).netloc
-
-            with self.lock:
-                cur_time = time.time()
-                elapsed_time = cur_time - self.domain_last_seen[domain]
-                if elapsed_time > self.config.time_delay:
-                    self.domain_last_seen[domain] = cur_time
-                    return url
-
+            # sets new domain accessed time before
+            # sleeping to delay other worker threads
             sleep_time = self.config.time_delay - elapsed_time
-            time.sleep(sleep_time)
+            self.domain_last_seen[domain] = cur_time + sleep_time
+
+        time.sleep(sleep_time)
+        with self.lock:
+            self.domain_last_seen[domain] = time.time()
+            return url
 
     def add_url(self, url):
         url = normalize(url)
