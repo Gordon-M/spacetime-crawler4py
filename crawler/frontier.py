@@ -79,7 +79,7 @@ class Frontier(object):
             self.domain_last_seen[domain] = cur_time + sleep_time
 
         time.sleep(sleep_time)
-        with self.lock:
+        with self.lock:  
             self.domain_last_seen[domain] = time.time()
             return url
 
