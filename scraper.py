@@ -3,34 +3,53 @@ from urllib.parse import urlparse, urljoin, urldefrag
 from bs4 import BeautifulSoup
 import random
 import hashlib
+from collections import defaultdict
+from nltk.stem import PorterStemmer
 
-fingerprints = {}
-simhash_fingerprints = set()
+stemmer = PorterStemmer()
+STOPWORDS = {
+    "the", "is", "in", "at", "of", "on", "and", "a", "to", "for",
+    "this", "that", "it", "as", "an", "by", "be", "from", "with",
+    "or", "are", "was", "were", "but", "not", "can", "will", "has",
+    "have", "had", "so", "if", "then", "when", "while", "which",
+}
+
+# fingerprints = {}
+# simhash_fingerprints = set()
+
+# (i, 16-bit chunk) : set of hashes with that chunk in the ith pos
+# defaultdict creates empty set for new keys
+simhash_buckets = defaultdict(set)
+visited_urls = set()
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
     return [link for link in links if is_valid(link)]
 
-def parseWords(text):
-    #Returns only words. HTML Tags, punctuation, whitespace removed
+# removes HTML Tags, punctuation, whitespace, stopwords
+# then stems and returns tokens
+def parse_text(text):
     remove_tags = re.sub(r'<.*?>', '', text)
     only_words = re.sub(r'[^\w\s]', '', remove_tags)
-    return only_words
-    
-def get_ngrams(text, n=3):
-    #returns words grouped into n-grams
-    ngrams = []
-    tokens = text.lower().split(" ")
 
-    for i in range(len(tokens) - n + 1):
-        ngram = tokens[i:i+3]
-        ngrams.append(" ".join(ngram))
-    return ngrams
+    tokens = only_words.lower().split()
+    remove_stopwords = [t for t in tokens if t not in STOPWORDS]
+    stemmed_tokens = [stemmer.stem(t) for t in remove_stopwords]
+
+    return stemmed_tokens
+    
+# def get_ngrams(text, n=3):
+#     #returns words grouped into n-grams
+#     ngrams = []
+#     tokens = text.lower().split(" ")
+
+#     for i in range(len(tokens) - n + 1):
+#         ngram = tokens[i:i+3]
+#         ngrams.append(" ".join(ngram))
+#     return ngrams
 
 # gets b-bit hash of text
-def simhash(text, b=64):
-    tokens = text.lower().split()
-
+def simhash(tokens, b=64):
     v = [0] * b
 
     for token in tokens:
@@ -53,35 +72,43 @@ def simhash(text, b=64):
     
     return fingerprint
     
-def hash_ngrams(ngrams):
-    to_hash = random.sample(ngrams, min(len(ngrams), 100))
-    hashed_ngrams = []
-    for ngram in to_hash:
-        hashed_ngram = hashlib.sha256(ngram.encode()).hexdigest()
-        hashed_ngrams.append(hashed_ngram)
-    return hashed_ngrams
+# def hash_ngrams(ngrams):
+#     to_hash = random.sample(ngrams, min(len(ngrams), 100))
+#     hashed_ngrams = []
+#     for ngram in to_hash:
+#         hashed_ngram = hashlib.sha256(ngram.encode()).hexdigest()
+#         hashed_ngrams.append(hashed_ngram)
+#     return hashed_ngrams
 
 # uses similarity based on hamming distance
 # between 2 simhashes
-def is_near_simhash_duplicate(hash1, b):
-    for hash2 in simhash_fingerprints:
-        num_diff = bin(hash1 ^ hash2).count("1")
-        similarity_score = 1 - num_diff / b
-        if similarity_score >= 0.95:
-            return True
+def is_near_simhash_duplicate(hash1, b=64):
+    chunks = [(hash1) >> (16*i) & 0xFFFF for i in range(4)]
+
+    for i, chunk in enumerate(chunks):
+        for hash2 in simhash_buckets[(i, chunk)]:
+            num_diff = bin(hash1 ^ hash2).count("1")
+            similarity_score = 1 - num_diff / b
+            if similarity_score >= 0.95:
+                return True
     return False
 
-def is_near_dup(hashed_ngrams):
-    if not hashed_ngrams:
-        return False
+def store_simhash_fingerprint(hash):
+    for i in range(4):
+        chunk = (hash >> (16*i) & 0xFFFF)
+        simhash_buckets[(i, chunk)].add(hash)
 
-    duplicates = 0
-    for ngram in hashed_ngrams:
-        if ngram in fingerprints:
-            duplicates += 1
-    similarity_score = duplicates / len(hashed_ngrams)
-    #print(similarity_score)
-    return similarity_score > .9
+# def is_near_dup(hashed_ngrams):
+#     if not hashed_ngrams:
+#         return False
+
+#     duplicates = 0
+#     for ngram in hashed_ngrams:
+#         if ngram in fingerprints:
+#             duplicates += 1
+#     similarity_score = duplicates / len(hashed_ngrams)
+#     #print(similarity_score)
+#     return similarity_score > .9
 
 def extract_next_links(url, resp):
     # Implementation required.
@@ -93,16 +120,19 @@ def extract_next_links(url, resp):
     #         resp.raw_response.url: the url, again
     #         resp.raw_response.content: the content of the page!
     # Return a list with the hyperlinks (as strings) scrapped from resp.raw_response.content
-    hyperlinks = []
+
+    if url in visited_urls:
+        return []
+    visited_urls.add(url)
 
     if resp.status != 200 or resp.raw_response == None:
         #print(f"Skipping URL {url} due to bad status or empty content.")
-        return hyperlinks
+        return []
     
     file_size_limit = 2500000
     if len(resp.raw_response.content) > file_size_limit:
         #print(f"Skipping URL {url} due to large file size.")
-        return hyperlinks
+        return []
 
     soup = BeautifulSoup(resp.raw_response.content, 'lxml')
     for tag in soup(['header', 'footer', 'nav', 'script', 'style', 'aside']):
@@ -110,14 +140,20 @@ def extract_next_links(url, resp):
     text = soup.get_text(separator=' ', strip=True)
     if len(text.split()) < 20:
         #print(f"Skipping URL {url} due to insufficient text content.")
+        return []
 
-        return hyperlinks
+    tokens = parse_text(text)
+    hash = simhash(tokens)
+    # simhash_fingerprints.add(hash)
 
-    parsed_text = parseWords(text)
-    hash = simhash(parsed_text)
-    if is_near_simhash_duplicate(hash, 64):
-        return hyperlinks
-    simhash_fingerprints.add(hash)
+    print(hash)
+
+    if is_near_simhash_duplicate(hash):
+        print("PRUNE DUPLICATE")
+        # store_simhash_fingerprint(hash)
+        return []
+    
+    store_simhash_fingerprint(hash)
 
     # ngrams = get_ngrams(parsed_text)
     #print(f"Extracted {len(ngrams)} n-grams from {url}.")  # Debugging the number of n-grams extracted
@@ -133,6 +169,7 @@ def extract_next_links(url, resp):
     # for ngram in hashed_ngrams:
     #     fingerprints[ngram] = True
 
+    hyperlinks = []
     links = soup.find_all('a')
     for link in links:
         href = link.get('href')
