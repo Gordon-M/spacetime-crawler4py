@@ -27,8 +27,8 @@ lock = RLock()
 
 def scraper(url, resp):
     links = extract_next_links(url, resp)
-    print("NEW LINKS", links)
-    print()
+    # print("NEW LINKS", links)
+    # print()
     return [link for link in links if is_valid(link)]
 
 # removes HTML Tags, punctuation, whitespace, stopwords
