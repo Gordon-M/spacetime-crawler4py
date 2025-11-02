@@ -14,7 +14,7 @@ def main(config_file, restart):
     crawler = Crawler(config, restart)
     crawler.start()
 
-    crawler.frontier.print_crawl_stats()
+    #crawler.frontier.print_crawl_stats()
 
 
 
