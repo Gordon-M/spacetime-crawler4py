@@ -67,7 +67,7 @@ def parse_text(text):
     only_words = re.sub(r'[^\w\s]', '', text)
 
     tokens = only_words.lower().split()
-    remove_stopwords = [t for t in tokens if t not in STOPWORDS]
+    remove_stopwords = [t for t in tokens if t not in STOPWORDS and len(t) > 1]
     stemmed_tokens = [stemmer.stem(t) for t in remove_stopwords]
 
     return stemmed_tokens
@@ -193,8 +193,9 @@ def is_valid(url):
         if "grape.ics.uci.edu" in netloc and "action=diff&version=" in query:
             return False
         
+        full_url = f"{netloc}{path}{query}".lower()
         for item in ignore_list:
-            if item in netloc or item in path or item in query:
+            if item in full_url:
                 return False
 
 
